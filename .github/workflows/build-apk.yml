@@ -28,6 +28,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+
     steps:
       - name: 拉取源码
         uses: actions/checkout@v4
@@ -38,22 +41,22 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: 安装 Android SDK 工具
-        uses: android-actions/setup-android@v3
-
       - name: 安装 SDK 平台与构建工具
         run: |
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          # API 37 在公开频道里可能以 37.0 命名；两个名字都试一遍
-          sdkmanager "platforms;android-37.0" "build-tools;37.0.0" \
-            || sdkmanager --channel=3 "platforms;android-37.0" "build-tools;37.0.0" \
-            || (sdkmanager "platforms;android-37" "build-tools;37.0.0")
-          sdkmanager --list_installed | sed -n '1,40p'
+          set -e
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          [ -x "$SDKM" ] || SDKM="$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager"
+          echo "sdkmanager: $SDKM"
+          yes | "$SDKM" --licenses > /dev/null 2>&1 || true
+          # API 37 在公开频道里可能叫 android-37.0（Android 17 预览），逐个尝试
+          "$SDKM" "platforms;android-37.0" "build-tools;37.0.0" \
+            || "$SDKM" --channel=3 "platforms;android-37.0" "build-tools;37.0.0" \
+            || "$SDKM" "platforms;android-37" "build-tools;37.0.0" \
+            || echo "API 37 未能安装，编译阶段会暴露真实错误"
+          "$SDKM" --list_installed | sed -n '1,40p' || true
 
       - name: 准备 Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          cache-read-only: false
 
       - name: 编译 Debug 包
         run: |
