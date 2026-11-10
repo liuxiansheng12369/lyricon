@@ -50,6 +50,17 @@ RELEASE_KEY_PASSWORD
 
 当前日志见 `更新日志.md`，功能候选见 `功能候选清单-34项.md`。
 
+## 自动构建（GitHub Actions）
+
+`.github/workflows/build-apk.yml` 会在以下情况自动编译 Debug 包：
+
+- 推送到 `main`，且改动涉及源码目录（`app/`、`xposed/`、`lyric/`、`common*/`、`bridge/`、`opencc-lite/`、`lyricon/`、`gradle/` 或根级构建脚本）
+- 手动触发：Actions 页 → 构建 APK → Run workflow
+
+产物：运行页底部 `Artifacts` → `词岛-debug-apk`，内含 `build/all-apks/debug/词岛-x.x.x-debug-arm64-v8a.apk`。
+
+只出 Debug 包。正式包依赖 `release-v3.jks` 与口令，本仓库按规定不保存签名文件，因此 CI 不会产出正式版；正式版仍在本地打包（先设好上面四个环境变量）。首次运行约 12 分钟，之后命中 Gradle 缓存会更快。
+
 ## 一键上传
 
 双击仓库根目录的 `一键上传.bat`：自动 `git add -A` → 提交 → 推送，网络抖动会自动重试 3 次。
