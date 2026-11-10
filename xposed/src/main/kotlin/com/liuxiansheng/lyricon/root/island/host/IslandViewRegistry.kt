@@ -1,0 +1,209 @@
+/*
+ * HyperLyric - Copyright (C) 2026 limczhh
+ * Licensed under GPL-3.0-or-later.
+ *
+ * Ported to Lyricon V3 by liuxiansheng.
+ */
+package com.liuxiansheng.lyricon.hyper.root.island.host
+
+import android.view.View
+import android.view.ViewGroup
+import com.liuxiansheng.lyricon.lyric.render.view.RichLyricLineView
+import com.liuxiansheng.lyricon.lyric.render.view.SpaceGateRichLyricLineView
+import java.util.WeakHashMap
+
+internal object IslandViewRegistry {
+    private val lock = Any()
+    private val activeHosts = WeakHashMap<ViewGroup, HostRecord>()
+    private val injectedViewsByRoot = WeakHashMap<ViewGroup, MutableMap<View, Unit>>()
+    private var nextGeneration = 0L
+
+    enum class AttachState {
+        PENDING_ATTACH,
+        ATTACHED
+    }
+
+    data class HostToken(
+        val root: ViewGroup,
+        val packageName: String,
+        val generation: Long
+    )
+
+    data class InjectedHostToken(
+        val host: HostToken,
+        val injectedViews: List<View>
+    )
+
+    private data class HostRecord(
+        var packageName: String,
+        var generation: Long,
+        var attachState: AttachState
+    )
+
+    fun register(view: ViewGroup, packageName: String): HostToken {
+        return synchronized(lock) {
+            val existing = activeHosts[view]
+            val record = if (existing == null || existing.packageName != packageName) {
+                HostRecord(
+                    packageName = packageName,
+                    generation = ++nextGeneration,
+                    attachState = if (view.isAttachedToWindow) {
+                        AttachState.ATTACHED
+                    } else {
+                        AttachState.PENDING_ATTACH
+                    }
+                ).also { activeHosts[view] = it }
+            } else {
+                if (view.isAttachedToWindow) {
+                    existing.attachState = AttachState.ATTACHED
+                }
+                existing
+            }
+            record.toToken(view)
+        }
+    }
+
+    fun unregister(token: HostToken) {
+        synchronized(lock) {
+            val record = activeHosts[token.root] ?: return
+            if (record.generation != token.generation ||
+                record.packageName != token.packageName
+            ) {
+                return
+            }
+            activeHosts.remove(token.root)
+            injectedViewsByRoot.remove(token.root)
+        }
+    }
+
+    /**
+     * Invalidates callbacks queued during the previous attachment while retaining
+     * the weak host record for a possible reattach.
+     */
+    fun markDetached(root: ViewGroup) {
+        synchronized(lock) {
+            val record = activeHosts[root] ?: return
+            if (record.attachState == AttachState.PENDING_ATTACH) return
+            record.generation = ++nextGeneration
+            record.attachState = AttachState.PENDING_ATTACH
+            injectedViewsByRoot.remove(root)
+        }
+    }
+
+    fun markAttached(root: ViewGroup): HostToken? {
+        return synchronized(lock) {
+            val record = activeHosts[root] ?: return@synchronized null
+            record.attachState = AttachState.ATTACHED
+            record.toToken(root)
+        }
+    }
+
+    fun isCurrent(token: HostToken): Boolean {
+        return synchronized(lock) {
+            val record = activeHosts[token.root]
+            record?.generation == token.generation &&
+                    record.packageName == token.packageName
+        }
+    }
+
+    fun tokenFor(root: ViewGroup): HostToken? {
+        return synchronized(lock) {
+            activeHosts[root]?.toToken(root)
+        }
+    }
+
+    fun refreshInjectedViews(root: ViewGroup) {
+        val indexedViews = WeakHashMap<View, Unit>()
+        collectInjectedViews(root, indexedViews)
+        synchronized(lock) {
+            if (activeHosts.containsKey(root)) {
+                injectedViewsByRoot[root] = indexedViews
+            }
+        }
+    }
+
+    fun snapshotAttached(packageName: String? = null): List<HostToken> {
+        val result = mutableListOf<HostToken>()
+        synchronized(lock) {
+            activeHosts.entries.forEach { entry ->
+                val viewGroup = entry.key
+                val record = entry.value
+                if (viewGroup.isAttachedToWindow) {
+                    record.attachState = AttachState.ATTACHED
+                    if (packageName == null || record.packageName == packageName) {
+                        result += record.toToken(viewGroup)
+                    }
+                }
+            }
+        }
+        return result
+    }
+
+    /**
+     * 全量宿主快照（含 detached / PENDING_ATTACH）。
+     *
+     * 清除场景（如总开关关闭）必须遍历所有曾经挂载注入视图的宿主：
+     * 若只用 snapshotAttached（仅窗口内），岛容器处于收起/切走（detached）时
+     * 注入的歌词视图会被漏清，重新展开后残留显示（"像暂停、没真正关闭"）。
+     */
+    fun snapshotAllHosts(packageName: String? = null): List<HostToken> {
+        val result = mutableListOf<HostToken>()
+        synchronized(lock) {
+            activeHosts.entries.forEach { entry ->
+                val record = entry.value
+                if (packageName == null || record.packageName == packageName) {
+                    result += record.toToken(entry.key)
+                }
+            }
+        }
+        return result
+    }
+
+    fun snapshotAttachedInjectedViews(
+        packageName: String? = null
+    ): List<InjectedHostToken> {
+        val result = mutableListOf<InjectedHostToken>()
+        synchronized(lock) {
+            activeHosts.entries.forEach { entry ->
+                val root = entry.key
+                val record = entry.value
+                if (!root.isAttachedToWindow) {
+                    return@forEach
+                }
+                record.attachState = AttachState.ATTACHED
+                if (packageName != null && record.packageName != packageName) return@forEach
+
+                val views = injectedViewsByRoot[root]
+                    ?.keys
+                    ?.filter { it.isAttachedToWindow }
+                    .orEmpty()
+                result += InjectedHostToken(
+                    host = record.toToken(root),
+                    injectedViews = views
+                )
+            }
+        }
+        return result
+    }
+
+    private fun HostRecord.toToken(root: ViewGroup): HostToken {
+        return HostToken(
+            root = root,
+            packageName = packageName,
+            generation = generation
+        )
+    }
+
+    private fun collectInjectedViews(view: View, result: MutableMap<View, Unit>) {
+        when (view) {
+            is RichLyricLineView,
+            is SpaceGateRichLyricLineView -> result[view] = Unit
+
+            is ViewGroup -> {
+                for (index in 0 until view.childCount) {
+                    collectInjectedViews(view.getChildAt(index), result)
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,18 @@
+*.iml
+.gradle/
+local.properties
+/build/
+/.idea/
+.DS_Store
+.captures/
+.externalNativeBuild/
+.cxx/
+.kotlin/
+*.apk
+*.aab
+
+# 签名文件与口令不进仓库
+*.jks
+*.keystore
+*.p12
+keystore.properties

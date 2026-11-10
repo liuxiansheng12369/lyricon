@@ -1,0 +1,92 @@
+/*
+ * IslandContentBridge — 超级岛内容桥接框架
+ * Copyright (c) 2026 刘先生（酷安 coolmarket://u/336057）
+ * Licensed under the Apache License, Version 2.0
+ */
+package com.liuxiansheng.lyricon.hyper.root.island.content.provider
+
+import android.content.Context
+import android.view.View
+import io.github.proify.android.extensions.sp
+import io.github.proify.lyricon.lyric.view.RichLyricLineView
+import io.github.proify.lyricon.xposed.systemui.util.CurrentMediaInfo
+
+/**
+ * 歌词内容提供者（歌名歌词一体显示层 · 重写版）
+ * 歌名作为歌词开头：同一行前缀，慢速逐字打字机 → 歌词接上（同一渲染流）
+ * 歌名为空时歌词直接显示（不隐藏）；读取原配置，设置项全部保留可用
+ */
+class LyricContentProvider : IslandContentProvider {
+    private var lyricView: RichLyricLineView? = null
+    private var listener: CurrentMediaInfo.OnMediaInfoChangeListener? = null
+    private var lastTitle: String = ""
+
+    /** 歌名逐字速度（慢，毫秒/字） */
+    private val prefixTypingMs: Long = 80L
+
+    override fun createView(context: Context, config: ContentProviderConfig, side: String): View {
+        return RichLyricLineView(
+            context = context,
+            displayTranslation = config.displayTranslation,
+            enableRelativeProgress = config.enableRelativeProgress,
+            enableRelativeProgressHighlight = config.enableRelativeProgressHighlight,
+            displayRoma = config.displayRoma
+        ).apply {
+            val self = this
+            minimumHeight = (config.textSize.sp * 2.5f).toInt()
+            maxWidth = config.maxWidthPx
+            runCatching {
+                setStyle(SuperIslandConfig.buildLyricViewStyle())
+                requestLayout()
+            }
+            val title = CurrentMediaInfo.title.orEmpty()
+            lastTitle = title
+            applyTitlePrefix(self, title)
+            listener = CurrentMediaInfo.OnMediaInfoChangeListener { newTitle, _, _ ->
+                post {
+                    if (newTitle != lastTitle) {
+                        lastTitle = newTitle
+                        applyTitlePrefix(self, newTitle.orEmpty())
+                    }
+                }
+            }
+            CurrentMediaInfo.registerListener(listener!!)
+        }
+    }
+
+    /** 歌名作为歌词开头：同一行前缀逐字，歌名打完歌词淡入；歌名为空时歌词直接显示 */
+    private fun applyTitlePrefix(view: RichLyricLineView, title: String) {
+        if (title.isEmpty()) {
+            view.setPrefix("", 0L)
+            view.alpha = 1f
+            return
+        }
+        view.alpha = 0f
+        view.setPrefix(title, prefixTypingMs) {
+            view.post { view.animate().alpha(1f).setDuration(350L).start() }
+        }
+    }
+
+    override fun update(view: View, config: ContentProviderConfig, side: String) {
+        val lyric = view as? RichLyricLineView ?: return
+        lyricView = lyric
+        lyric.displayTranslation = config.displayTranslation
+        lyric.enableRelativeProgress = config.enableRelativeProgress
+        lyric.enableRelativeProgressHighlight = config.enableRelativeProgressHighlight
+        lyric.displayRoma = config.displayRoma
+        lyric.minimumHeight = (config.textSize.sp * 2.5f).toInt()
+        lyric.maxWidth = config.maxWidthPx
+        lyric.post {
+            runCatching {
+                lyric.setStyle(SuperIslandConfig.buildLyricViewStyle())
+                lyric.requestLayout()
+            }
+        }
+    }
+
+    override fun destroy(view: View) {
+        listener?.let { CurrentMediaInfo.unregisterListener(it) }
+        listener = null
+        lyricView = null
+    }
+}

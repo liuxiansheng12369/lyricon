@@ -1,0 +1,21 @@
+@file:Suppress("unused")
+
+package io.github.proify.lyricon.subscriber
+
+import kotlinx.serialization.Serializable
+
+/**
+ * 提供端元数据。
+ *
+ * 用键值对携带额外展示或能力信息。该类型委托实现 [Map]，可直接按普通 Map 读取。
+ *
+ * @property map 元数据键值对。
+ */
+@Serializable
+class ProviderMetadata(
+    private val map: Map<String, String?> = emptyMap()
+) : Map<String, String?> by map
+
+/** 使用键值对快速创建 [ProviderMetadata]。 */
+fun providerMetadataOf(vararg pairs: Pair<String, String?>): ProviderMetadata =
+    ProviderMetadata(mapOf(*pairs))

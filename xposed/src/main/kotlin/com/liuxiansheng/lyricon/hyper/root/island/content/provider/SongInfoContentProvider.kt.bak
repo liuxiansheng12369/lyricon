@@ -1,0 +1,76 @@
+/*
+ * IslandContentBridge — 超级岛内容桥接框架
+ * Copyright (c) 2026 刘先生（酷安 coolmarket://u/336057）
+ * Licensed under the Apache License, Version 2.0
+ */
+package com.liuxiansheng.lyricon.hyper.root.island.content.provider
+
+import android.content.Context
+import android.graphics.Color
+import android.view.Gravity
+import android.view.View
+import android.widget.LinearLayout
+import android.widget.TextView
+import io.github.proify.lyricon.xposed.systemui.util.CurrentMediaInfo
+
+/**
+ * 歌名+艺术家内容提供者
+ * 从系统媒体会话获取当前播放的歌曲信息
+ */
+class SongInfoContentProvider : IslandContentProvider {
+    private var titleView: TextView? = null
+    private var artistView: TextView? = null
+    private var listener: CurrentMediaInfo.OnMediaInfoChangeListener? = null
+
+    override fun createView(context: Context, config: ContentProviderConfig, side: String): View {
+        return LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+
+            titleView = TextView(context).apply {
+                text = CurrentMediaInfo.title
+                textSize = config.textSize
+                setTextColor(SuperIslandConfig.getContentPrimaryColor())
+                setSingleLine(true)
+            }
+
+            artistView = TextView(context).apply {
+                text = CurrentMediaInfo.artist
+                textSize = (config.textSize - 2).coerceAtLeast(8f)
+                setTextColor(SuperIslandConfig.getContentSecondaryColor())
+                setSingleLine(true)
+            }
+
+            addView(titleView)
+            addView(artistView)
+
+            listener = CurrentMediaInfo.OnMediaInfoChangeListener { newTitle, newArtist, _ ->
+                post {
+                    titleView?.text = newTitle
+                    artistView?.text = newArtist
+                }
+            }
+            CurrentMediaInfo.registerListener(listener!!)
+        }
+    }
+
+    override fun update(view: View, config: ContentProviderConfig, side: String) {
+        if (view is LinearLayout) {
+            titleView?.text = CurrentMediaInfo.title
+            artistView?.text = CurrentMediaInfo.artist
+            titleView?.textSize = config.textSize
+            artistView?.textSize = (config.textSize - 2).coerceAtLeast(8f)
+        }
+    }
+
+    override fun destroy(view: View) {
+        listener?.let { CurrentMediaInfo.unregisterListener(it) }
+        listener = null
+        titleView = null
+        artistView = null
+    }
+}

@@ -1,0 +1,68 @@
+[versions]
+agp = "9.1.1"
+jetbrainsKotlinJvm = "2.3.21"
+kotlin = "2.3.21"
+
+# AndroidX Base
+coreKtx = "1.18.0"
+appcompat = "1.7.1"
+lifecycle = "2.10.0"
+interpolator = "1.0.0"
+
+# Compose
+activityCompose = "1.13.0"
+composeBom = "2026.05.00"
+material3 = "1.5.0-alpha19"
+material = "1.14.0"
+
+# Miuix UI
+miuixUI = "0.9.3"
+
+# Serialization
+kotlinxSerializationJson = "1.11.0"
+
+# SVG（老词幕 common 的 SVGHelper 依赖，状态栏域 provider logo 用）
+androidsvg = "1.4"
+
+# Xposed
+xposed-api = "102.0.0"
+xposed-service = "102.0.0"
+
+# Testing
+junit4 = "4.13.2"
+androidxJunit = "1.3.0"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+androidx-interpolator = { group = "androidx.interpolator", name = "interpolator", version.ref = "interpolator" }
+
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
+
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+
+miuix-android = { module = "top.yukonga.miuix.kmp:miuix-ui-android", version.ref = "miuixUI" }
+miuix-preference = { module = "top.yukonga.miuix.kmp:miuix-preference-android", version.ref = "miuixUI" }
+miuix-icons = { module = "top.yukonga.miuix.kmp:miuix-icons-android", version.ref = "miuixUI" }
+miuix-blur = { module = "top.yukonga.miuix.kmp:miuix-blur-android", version.ref = "miuixUI" }
+
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+
+androidsvg = { module = "com.caverock:androidsvg-aar", version.ref = "androidsvg" }
+
+libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "xposed-api" }
+libxposed-service = { group = "io.github.libxposed", name = "service", version.ref = "xposed-service" }
+
+junit = { group = "junit", name = "junit", version.ref = "junit4" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxJunit" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+jetbrains-kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "jetbrainsKotlinJvm" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

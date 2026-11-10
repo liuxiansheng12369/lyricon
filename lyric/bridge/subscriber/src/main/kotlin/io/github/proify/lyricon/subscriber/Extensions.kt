@@ -1,0 +1,13 @@
+
+package io.github.proify.lyricon.subscriber
+
+import kotlinx.serialization.json.Json
+
+/** 模块内统一使用的宽松 JSON 编解码器。 */
+internal val json: Json = Json {
+    coerceInputValues = true     // 尝试转换类型
+    ignoreUnknownKeys = true     // 忽略未知字段
+    isLenient = true             // 宽松的 JSON 语法
+    explicitNulls = false        // 不序列化 null
+    encodeDefaults = false       // 不序列化默认值
+}
